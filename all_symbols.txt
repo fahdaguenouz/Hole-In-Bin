@@ -1,0 +1,22 @@
+=== ex03 ===
+    56: 08048424    20 FUNC    GLOBAL DEFAULT   14 win
+=== ex04 ===
+    56: 080483f4    20 FUNC    GLOBAL DEFAULT   14 win
+=== ex05 ===
+    62: 080483f4    55 FUNC    GLOBAL DEFAULT   14 vuln
+=== ex06 ===
+    74: 08048864    37 FUNC    GLOBAL DEFAULT   14 winner
+=== ex07 ===
+    63: 08048454   103 FUNC    GLOBAL DEFAULT   14 vuln
+    65: 080496e4     4 OBJECT  GLOBAL DEFAULT   25 target
+=== ex08 ===
+    64: 08048467   105 FUNC    GLOBAL DEFAULT   14 vuln
+    66: 080496f4     4 OBJECT  GLOBAL DEFAULT   25 target
+=== ex09 ===
+    65: 080484d2    66 FUNC    GLOBAL DEFAULT   14 vuln
+    67: 0804973c     4 OBJECT  GLOBAL DEFAULT   25 target
+=== ex10 ===
+    55: 08048464    20 FUNC    GLOBAL DEFAULT   14 winner
+    63: 08048478    20 FUNC    GLOBAL DEFAULT   14 nowinner
+=== ex11 ===
+    55: 08048494    37 FUNC    GLOBAL DEFAULT   14 winner
