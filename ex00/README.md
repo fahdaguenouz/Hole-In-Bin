@@ -520,7 +520,7 @@ int main()
 ```
 
 ---
-
+```markdown
 sub esp,0x60
 │
 ▼
@@ -560,7 +560,7 @@ if(modified != 0)
 │
 ▼
 Success!
-
+```
 ---
 
 ## Extra Notes (Nice Addition)
