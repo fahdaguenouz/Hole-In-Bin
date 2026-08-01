@@ -92,6 +92,442 @@ errx
 The presence of `strcpy()` immediately suggests a possible buffer overflow because `strcpy()` copies data without checking the destination buffer size.
 
 ---
+```bash 
+gdb bin 
+```
+
+---
+
+#  Explain the assembly one instruction at a time
+
+
+````markdown
+##  Creating the Stack Frame
+
+```asm
+push ebp
+mov ebp, esp
+sub esp, 0x60
+```
+
+The compiler reserves space for local variables.
+
+```
+0x60 = 96 bytes
+```
+
+```
+Higher Addresses
++----------------------+
+| saved EBP            |
++----------------------+
+| local variables      |
+|      96 bytes        |
++----------------------+
+ESP
+```
+````
+
+---
+
+Then
+
+````markdown
+##  Initializing the Variable
+
+```asm
+movl $0x0,0x5c(%esp)
+```
+
+Meaning:
+
+```
+*(esp + 0x5c) = 0
+```
+
+Equivalent C:
+
+```c
+int modified = 0;
+```
+````
+
+---
+
+Then
+
+````markdown
+## Locating the Buffer
+
+```asm
+lea 0x1c(%esp),eax
+```
+
+`LEA` means
+
+> Load Effective Address
+
+It **does not read memory**.
+
+Instead it calculates an address.
+
+Example
+
+```
+ESP = 0xffffd100
+
+lea 0x1c(%esp),eax
+
+↓
+
+EAX = 0xffffd11c
+```
+
+Graphically
+
+```
+ESP
+│
+├───────────────
+│
+│ buffer starts here
+│
+▼
+0xffffd11c
+```
+
+Now
+
+```
+EAX = &buffer
+```
+
+Exactly the same explanation as ex00.
+````
+
+---
+
+# Explain strcpy()
+
+
+````markdown
+##  Copying the User Input
+
+```asm
+call strcpy
+```
+
+Equivalent C:
+
+```c
+strcpy(buffer, argv[1]);
+```
+
+Unlike `gets()`, the input comes from the command-line argument.
+
+```
+argv[1]
+        │
+        ▼
++---------------+
+| "AAAAAAAAAA"  |
++---------------+
+
+        strcpy()
+
++---------------+
+| buffer[64]    |
++---------------+
+```
+
+The problem is that `strcpy()` **never checks the size of the destination buffer**.
+
+If more than 64 bytes are copied, the data continues into the next memory locations.
+````
+
+---
+
+#  Better stack diagram
+
+Instead of
+
+```
+Higher
+modified
+buffer
+Lower
+```
+
+I'd use
+
+```
+Higher Addresses
+────────────────────────────
+
+Saved Return Address
+────────────────────────────
+Saved EBP
+────────────────────────────
+modified (4 bytes)
+ESP + 0x5c
+────────────────────────────
+buffer[64]
+ESP + 0x1c
+────────────────────────────
+Unused local space
+────────────────────────────
+ESP
+
+Lower Addresses
+```
+
+or
+
+```
+ESP
+│
+├─────────────────────────────
+│
+│ buffer[64]
+│
+│ starts at ESP+0x1c
+│
+├─────────────────────────────
+│ modified
+│
+│ ESP+0x5c
+│
+├─────────────────────────────
+│ saved EBP
+│
+├─────────────────────────────
+│ return address
+│
+└─────────────────────────────
+```
+
+Much easier to visualize.
+
+---
+
+#  Make Little Endian visual
+
+
+```
+0x61626364
+```
+
+I'd explain it like this.
+
+````markdown
+## Why "dcba"?
+
+The program compares
+
+```asm
+cmp $0x61626364,%eax
+```
+
+Break the value into bytes:
+
+```
+0x61 0x62 0x63 0x64
+
+ a    b    c    d
+```
+
+If the CPU were **Big Endian**, memory would contain
+
+```
+61 62 63 64
+```
+
+But Intel x86 uses **Little Endian**, so memory stores the least significant byte first.
+
+```
+Memory
+
++------+------+------+------+
+| 64 | 63 | 62 | 61 |
++------+------+------+------+
+   d    c    b    a
+```
+
+Therefore we must send
+
+```
+dcba
+```
+
+instead of
+
+```
+abcd
+```
+````
+
+This is much easier to remember.
+
+---
+
+#  Explain why 64 bytes
+
+Exactly like ex00.
+
+```
+buffer
+
+ESP+0x1c
+
+modified
+
+ESP+0x5c
+```
+
+Subtract
+
+```
+0x5c
+-0x1c
+------
+0x40
+```
+
+```
+0x40 = 64
+```
+
+Then draw
+
+```
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+dcba
+^^^^
+modified
+```
+
+instead of just saying "64 bytes."
+
+---
+
+#  Add a payload diagram
+
+```
+Payload
+
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+dcba
+
+│<------64 bytes------>││4 bytes│
+```
+
+Or
+
+```
++--------------------+-------------+
+| buffer padding     | modified    |
+|      64 bytes      |    dcba     |
++--------------------+-------------+
+```
+
+People instantly understand the exploit.
+
+---
+
+# 8. Add the execution flow (same as ex00)
+
+````markdown
+```text
+Program starts
+│
+▼
+modified = 0
+│
+▼
+buffer[64]
+│
+▼
+strcpy(buffer, argv[1])
+│
+▼
+Input > 64 bytes?
+│
+├── No
+│      │
+│      ▼
+│ modified = 0
+│
+└── Yes
+       │
+       ▼
+modified overwritten
+       │
+       ▼
+modified == 0x61626364 ?
+       │
+       ├── No
+       │      │
+       │      ▼
+       │  "Try again"
+       │
+       └── Yes
+              │
+              ▼
+Success!
+```
+````
+
+---
+
+#  Add Register Flow
+
+Exactly like ex00.
+
+```
+Before LEA
+
+ESP = 0xffffd100
+
+EAX = ??????
+```
+
+After
+
+```
+lea 0x1c(%esp),eax
+```
+
+```
+ESP = 0xffffd100
+
+EAX = 0xffffd11c
+```
+
+After
+
+```
+mov eax,(esp)
+```
+
+```
+Stack
+
+ESP
+│
+▼
+0xffffd11c
+```
+
+Then
+
+```
+call strcpy
+```
+
+
+---
 
 # Program Behavior
 
@@ -424,6 +860,20 @@ This vulnerability can be prevented by:
 
 ---
 
+
+## Lessons Learned
+
+```markdown
+## Lessons Learned
+
+- `lea` loads an address, not the data stored there.
+- `strcpy()` copies bytes until it reaches a NULL byte and performs no bounds checking.
+- Stack offsets can be used to reconstruct local variables from assembly.
+- Buffer overflows occur when input exceeds the allocated buffer size.
+- x86 processors store multi-byte values in **little-endian** format.
+- Exploits often require writing an **exact value**, not just corrupting memory.
+- Understanding byte order is essential for later challenges involving return addresses and ROP.
+```
 # Key Takeaway
 
 This challenge extends the previous exercise by demonstrating that successful exploitation often requires writing an **exact value** into memory rather than simply corrupting it.
@@ -431,4 +881,3 @@ This challenge extends the previous exercise by demonstrating that successful ex
 It also introduces one of the most important concepts in binary exploitation: **little-endian encoding**. Understanding how integers are stored in memory is essential for later challenges involving return addresses, function pointers, Return-Oriented Programming (ROP), and advanced memory corruption techniques.
 
 By analyzing the assembly, calculating the buffer offset, and constructing the payload manually, this challenge reinforces the fundamental workflow used in real-world binary exploitation and reverse engineering.
-
