@@ -1,541 +1,626 @@
-Absolutely. Since you're learning reverse engineering and binary exploitation, here's a cheat sheet you can keep nearby. It includes the register hierarchy, its usual purpose, and a simple example.
+# x86 Register Review (32-bit)
+
+## What is a Register?
+
+A **register** is a very small, extremely fast storage location **inside the CPU**.
+
+Unlike RAM, registers are directly accessed by the processor every instruction.
+
+Think of them as the CPU's workspace.
+
+```text
+CPU
+
++--------------------------------------+
+|                                      |
+|  EAX   EBX   ECX   EDX               |
+|                                      |
+|  ESP   EBP   EIP                     |
+|                                      |
++--------------------------------------+
+
+            │
+
+            ▼
+
+          Memory (RAM)
+```
+
+Registers hold things like:
+
+* numbers
+* memory addresses
+* pointers
+* function arguments
+* return values
 
 ---
-##
+
 # General Purpose Registers
 
-| 64-bit | 32-bit | 16-bit | 8-bit | Common Purpose |
-|--------|--------|--------|--------|----------------|
-| **RAX** | EAX | AX | AL | Return value, syscall number, arithmetic |
-| **RBX** | EBX | BX | BL | General-purpose (callee-saved) |
-| **RCX** | ECX | CX | CL | Loop counter, 4th function argument |
-| **RDX** | EDX | DX | DL | 3rd function argument |
-| **RSI** | ESI | SI | SIL | 2nd function argument |
-| **RDI** | EDI | DI | DIL | 1st function argument |
-| **RSP** | ESP | SP | SPL | Stack Pointer |
-| **RBP** | EBP | BP | BPL | Base Pointer |
-| **R8** | R8D | R8W | R8B | 5th function argument |
-| **R9** | R9D | R9W | R9B | 6th function argument |
-| **R10** | R10D | R10W | R10B | 4th syscall argument |
-| **R11** | R11D | R11W | R11B | Temporary register |
-| **R12** | R12D | R12W | R12B | General-purpose |
-| **R13** | R13D | R13W | R13B | General-purpose |
-| **R14** | R14D | R14W | R14B | General-purpose |
-| **R15** | R15D | R15W | R15B | General-purpose |
+There are four classic general-purpose registers.
+
+```
+EAX
+EBX
+ECX
+EDX
+```
+
+Historically, each had a preferred use, although modern compilers use them more flexibly.
 
 ---
 
-##
+# EAX — Accumulator
 
-# x86-64 General Purpose Registers Cheat Sheet
+**EAX** is the most important general-purpose register.
 
-## 1. RAX — Accumulator
+It is commonly used for:
 
-```text
-64 bits:  +-----------------------------------------------+
-          |                    RAX                        |
-          +-----------------------------------------------+
-                    |-----------------------|
-32 bits:            |          EAX          |
-                    |----------|
-16 bits:            |    AX    |
-                    |----|
-8 bits:             | AL |
+* arithmetic operations
+* function return values
+* system call numbers (Linux)
+
+Example:
+
+```c
+int add()
+{
+    return 5;
+}
 ```
 
-### Common uses
-
-* Return value from functions
-* System call number
-* Arithmetic operations
-
-### Example
+Assembly:
 
 ```asm
-mov rax, 60      ; exit syscall
-syscall
+mov eax, 5
+ret
 ```
 
-or
+When the function returns:
 
-```asm
-add rax, 5
+```
+EAX = 5
 ```
 
 ---
 
-## 2. RBX — Base Register
+## Why Exploit Developers Care
+
+Suppose GDB shows:
 
 ```text
-64 bits:  +-----------------------------------------------+
-          |                    RBX                        |
-          +-----------------------------------------------+
-                    |-----------------------|
-32 bits:            |          EBX          |
-                    |----------|
-16 bits:            |    BX    |
-                    |----|
-8 bits:             | BL |
+EAX = 0x41414141
 ```
 
-### Common uses
+This means your input has overwritten EAX.
 
-* General-purpose storage
-* Often preserved across function calls
-
-### Example
-
-```asm
-mov rbx, 100
-```
+That's useful because it proves you control part of the program state.
 
 ---
 
-## 3. RCX — Counter Register
+# EBX — Base Register
 
-```text
-64 bits:  +-----------------------------------------------+
-          |                    RCX                        |
-          +-----------------------------------------------+
-                    |-----------------------|
-32 bits:            |          ECX          |
-                    |----------|
-16 bits:            |    CX    |
-                    |----|
-8 bits:             | CL |
-```
+Historically:
 
-### Common uses
+* base pointer for data
+* general-purpose storage
 
-* Loop counter
-* 4th function argument
-
-### Example
+Example:
 
 ```asm
-mov rcx, 10
+mov ebx, eax
+```
+
+Copies EAX into EBX.
+
+Today, it's often just another register the compiler uses.
+
+---
+
+# ECX — Counter Register
+
+Traditionally used for loops.
+
+Example:
+
+```asm
+mov ecx, 10
+
 loop_start:
-dec rcx
-jnz loop_start
+
+...
+
+loop loop_start
+```
+
+The `loop` instruction automatically decrements ECX until it reaches zero.
+
+You'll also see ECX used for:
+
+* counters
+* string operations
+* function arguments in some calling conventions
+
+---
+
+# EDX — Data Register
+
+Often paired with EAX.
+
+Example:
+
+Multiplication:
+
+```asm
+mul ebx
+```
+
+Result:
+
+```
+High 32 bits → EDX
+
+Low 32 bits → EAX
+```
+
+Division:
+
+```
+Dividend
+
+EDX:EAX
+```
+
+Quotient:
+
+```
+EAX
+```
+
+Remainder:
+
+```
+EDX
 ```
 
 ---
 
-## 4. RDX — Data Register
+# ESP — Stack Pointer
 
-```text
-64 bits:  +-----------------------------------------------+
-          |                    RDX                        |
-          +-----------------------------------------------+
-                    |-----------------------|
-32 bits:            |          EDX          |
-                    |----------|
-16 bits:            |    DX    |
-                    |----|
-8 bits:             | DL |
+Probably the most important register for exploitation.
+
+ESP always points to the **top of the stack**.
+
+Example:
+
+```
+Stack
+
+High Address
+
+----------------
+
+Function arguments
+
+Return Address
+
+Saved EBP
+
+↓
+
+ESP
+
+Local Variables
+
+Low Address
 ```
 
-### Common uses
-
-* 3rd function argument
-* Multiplication/division
-
-### Example
+When you execute:
 
 ```asm
-mov rdx, 100
+push eax
 ```
+
+ESP changes.
+
+```text
+Before
+
+ESP
+
+0xffffd020
+```
+
+After
+
+```asm
+push eax
+```
+
+```text
+ESP
+
+0xffffd01c
+```
+
+The stack grows **downward**.
 
 ---
 
-## 5. RSI — Source Index
+# Why ESP Matters
 
-```text
-64 bits:  +-----------------------------------------------+
-          |                    RSI                        |
-          +-----------------------------------------------+
-                    |-----------------------|
-32 bits:            |          ESI          |
-                    |----------|
-16 bits:            |    SI    |
-                    |----|
-8 bits:             | SIL |
-```
+Buffer overflows often overwrite memory **near ESP**.
 
-### Common uses
+You'll constantly inspect it:
 
-* 2nd function argument
-* Source pointer for memory operations
-
-### Example
-
-```asm
-mov rsi, message
+```gdb
+info registers
 ```
 
 or
 
-```asm
-mov rdi, rsi
+```gdb
+x/20wx $esp
 ```
 
 ---
 
-## 6. RDI — Destination Index
+# EBP — Base Pointer (Frame Pointer)
 
-```text
-64 bits:  +-----------------------------------------------+
-          |                    RDI                        |
-          +-----------------------------------------------+
-                    |-----------------------|
-32 bits:            |          EDI          |
-                    |----------|
-16 bits:            |    DI    |
-                    |----|
-8 bits:             | DIL |
-```
+EBP points to the beginning of the current function's stack frame.
 
-### Common uses
-
-* 1st function argument
-* Destination pointer
-
-### Example
+Typical function:
 
 ```asm
-mov rdi, 42
+push ebp
+
+mov ebp, esp
+
+sub esp, 0x40
 ```
 
-or
+Visualization:
+
+```
+High Address
+
+Arguments
+
+Return Address
+
+Saved EBP  ← EBP
+
+---------------
+
+Local Variables
+
+---------------
+
+ESP
+
+Low Address
+```
+
+Local variables use offsets from EBP.
+
+Example:
 
 ```asm
-mov rdi, rsi
+mov eax, [ebp-4]
 ```
 
----
+means
 
-## 7. RBP — Base Pointer
-
-```text
-64 bits:  +-----------------------------------------------+
-          |                    RBP                        |
-          +-----------------------------------------------+
-                    |-----------------------|
-32 bits:            |          EBP          |
-                    |----------|
-16 bits:            |    BP    |
-                    |----|
-8 bits:             | BPL |
+```
+Load local variable
 ```
 
-### Common uses
-
-* Base of the current stack frame
-* Access local variables
-
-### Example
+Arguments:
 
 ```asm
-push rbp
-mov rbp, rsp
+mov eax, [ebp+8]
+```
+
+means
+
+```
+Load first function argument
 ```
 
 ---
 
-## 8. RSP — Stack Pointer
+# Why EBP Matters
+
+During a stack overflow:
+
+```
+Buffer
+
+↓
+
+Saved EBP
+
+↓
+
+Return Address
+```
+
+You often overwrite:
+
+1. Local buffer
+2. Saved EBP
+3. Return address
+
+Understanding EBP makes it much easier to calculate the correct offset to EIP.
+
+---
+
+# EIP — Instruction Pointer
+
+EIP tells the CPU:
+
+> **What instruction should execute next?**
+
+Example:
+
+```
+EIP
+
+0x08048464
+```
+
+CPU executes:
+
+```
+0x08048464
+```
+
+Then automatically moves to:
+
+```
+0x08048467
+```
+
+(or whatever the next instruction is)
+
+---
+
+# Why EIP Is Everything
+
+Consider a vulnerable program:
+
+```
+Buffer
+
+↓
+
+Saved EBP
+
+↓
+
+Saved EIP
+```
+
+If you overwrite EIP:
+
+```
+EIP = winner()
+```
+
+The CPU immediately begins executing the `winner()` function.
+
+That's exactly what you did in your **Ret2Win** exercises.
+
+For example:
 
 ```text
-64 bits:  +-----------------------------------------------+
-          |                    RSP                        |
-          +-----------------------------------------------+
-                    |-----------------------|
-32 bits:            |          ESP          |
-                    |----------|
-16 bits:            |    SP    |
-                    |----|
-8 bits:             | SPL |
+Before
+
+EIP
+
+0x08048590
 ```
 
-### Common uses
-
-* Points to the top of the stack
-
-### Example
-
-```asm
-push rax
-pop rax
-```
-
----
-
-## 9. R8
+Overflow:
 
 ```text
-64 bits:  +-----------------------------------------------+
-          |                     R8                        |
-          +-----------------------------------------------+
-                    |-----------------------|
-32 bits:            |         R8D           |
-                    |----------|
-16 bits:            |   R8W    |
-                    |----|
-8 bits:             | R8B |
+EIP
+
+0x08048484
 ```
 
-### Common uses
+Now the program jumps directly to:
 
-* 5th function argument
+```
+winner()
+```
 
-Example
+This is the essence of many classic buffer overflow exploits.
 
-```asm
-mov r8, 123
+---
+
+# Register Relationships
+
+```
+CPU Registers
+
++----------------------+
+
+EAX
+
+Return values
+
+Arithmetic
+
+----------------------
+
+EBX
+
+General storage
+
+----------------------
+
+ECX
+
+Loop counter
+
+----------------------
+
+EDX
+
+Arithmetic
+
+Multiply/Divide
+
+----------------------
+
+ESP
+
+Top of stack
+
+----------------------
+
+EBP
+
+Current stack frame
+
+----------------------
+
+EIP
+
+Next instruction
+
++----------------------+
 ```
 
 ---
 
-## 10. R9
+# What You'll See in GDB
+
+Run:
+
+```gdb
+info registers
+```
+
+Example:
 
 ```text
-64 bits:  +-----------------------------------------------+
-          |                     R9                        |
-          +-----------------------------------------------+
-                    |-----------------------|
-32 bits:            |         R9D           |
-                    |----------|
-16 bits:            |   R9W    |
-                    |----|
-8 bits:             | R9B |
+eax            0x00000005
+
+ebx            0x0804a000
+
+ecx            0xffffd050
+
+edx            0x00000000
+
+esp            0xffffd020
+
+ebp            0xffffd068
+
+eip            0x08048484
 ```
 
-### Common uses
+Interpretation:
 
-* 6th function argument
+| Register | Meaning                              |
+| -------- | ------------------------------------ |
+| EAX      | Function returned `5`                |
+| EBX      | Holds a memory address               |
+| ECX      | Counter or temporary value           |
+| EDX      | Additional arithmetic data           |
+| ESP      | Current top of the stack             |
+| EBP      | Base of the current stack frame      |
+| EIP      | Instruction currently being executed |
 
 ---
 
-## 11. R10
+# Exploitation Perspective
+
+When debugging a crash, these are the registers you'll check first:
+
+```
+EIP
+```
+
+Did we control execution?
+
+```
+ESP
+```
+
+Where is our payload?
+
+```
+EBP
+```
+
+Did we overwrite the stack frame?
+
+```
+EAX
+```
+
+Did our input end up here?
+
+Many exploit development sessions begin with:
+
+```gdb
+info registers
+```
+
+followed by:
+
+```gdb
+x/32wx $esp
+```
+
+to inspect the stack around the current stack pointer.
+
+---
+
+# Memory Layout During a Function Call
 
 ```text
-64 bits:  +-----------------------------------------------+
-          |                    R10                        |
-          +-----------------------------------------------+
-                    |-----------------------|
-32 bits:            |        R10D           |
-                    |----------|
-16 bits:            |   R10W   |
-                    |----|
-8 bits:             | R10B |
-```
-
-### Common uses
-
-* 4th syscall argument
-* Temporary register
-
----
-
-## 12. R11
-
-```text
-64 bits:  +-----------------------------------------------+
-          |                    R11                        |
-          +-----------------------------------------------+
-                    |-----------------------|
-32 bits:            |        R11D           |
-                    |----------|
-16 bits:            |   R11W   |
-                    |----|
-8 bits:             | R11B |
-```
-
-### Common uses
-
-* Temporary register
-* Modified by `syscall`
-
----
-
-## 13. R12
-
-```text
-64 bits:  +-----------------------------------------------+
-          |                    R12                        |
-          +-----------------------------------------------+
-                    |-----------------------|
-32 bits:            |        R12D           |
-                    |----------|
-16 bits:            |   R12W   |
-                    |----|
-8 bits:             | R12B |
-```
-
-### Common uses
-
-* General-purpose register
-
----
-
-## 14. R13
-
-```text
-64 bits:  +-----------------------------------------------+
-          |                    R13                        |
-          +-----------------------------------------------+
-                    |-----------------------|
-32 bits:            |        R13D           |
-                    |----------|
-16 bits:            |   R13W   |
-                    |----|
-8 bits:             | R13B |
-```
-
-### Common uses
-
-* General-purpose register
-
----
-
-## 15. R14
-
-```text
-64 bits:  +-----------------------------------------------+
-          |                    R14                        |
-          +-----------------------------------------------+
-                    |-----------------------|
-32 bits:            |        R14D           |
-                    |----------|
-16 bits:            |   R14W   |
-                    |----|
-8 bits:             | R14B |
-```
-
-### Common uses
-
-* General-purpose register
-
----
-
-## 16. R15
-
-```text
-64 bits:  +-----------------------------------------------+
-          |                    R15                        |
-          +-----------------------------------------------+
-                    |-----------------------|
-32 bits:            |        R15D           |
-                    |----------|
-16 bits:            |   R15W   |
-                    |----|
-8 bits:             | R15B |
-```
-
-### Common uses
-
-* General-purpose register
-
----
-
-# The two tables you should memorize
-
-### Function arguments (System V ABI)
-
-| Argument | Register |
-| -------- | -------- |
-| 1        | `rdi`    |
-| 2        | `rsi`    |
-| 3        | `rdx`    |
-| 4        | `rcx`    |
-| 5        | `r8`     |
-| 6        | `r9`     |
-
----
-
-### Linux `syscall` arguments
-
-| Purpose        | Register |
-| -------------- | -------- |
-| Syscall number | `rax`    |
-| Argument 1     | `rdi`    |
-| Argument 2     | `rsi`    |
-| Argument 3     | `rdx`    |
-| Argument 4     | `r10`    |
-| Argument 5     | `r8`     |
-| Argument 6     | `r9`     |
-
----
-##
-
-RAX → Syscall Number / Return Value
-
-RDI → Argument #1
-
-RSI → Argument #2
-
-RDX → Argument #3
-
-RSP → Stack Pointer
-
-RBP → Base Pointer
+Higher Memory Addresses
++----------------------------+
+| Function Arguments         | ← [EBP+8], [EBP+12], ...
++----------------------------+
+| Return Address             |
++----------------------------+
+| Saved EBP                  | ← EBP
++----------------------------+
+| Local Variables            |
+| char buffer[64];           |
+| int x;                     |
++----------------------------+
+|                            | ← ESP (moves as values are pushed/popped)
++----------------------------+
+Lower Memory Addresses
 ```
 
 ---
 
-# Memory Trick
+# Quick Cheat Sheet
 
-```text
-Arguments (Functions)
-
-1 → RDI
-2 → RSI
-3 → RDX
-4 → RCX
-5 → R8
-6 → R9
-
-Return → RAX
-```
-
-```text
-Arguments (Syscalls)
-
-RAX → Which syscall?
-
-RDI → Arg1
-
-RSI → Arg2
-
-RDX → Arg3
-
-R10 → Arg4
-
-R8  → Arg5
-
-R9  → Arg6
-```
+| Register | Full Name           | Primary Purpose                            |
+| -------- | ------------------- | ------------------------------------------ |
+| **EAX**  | Accumulator         | Return values, arithmetic                  |
+| **EBX**  | Base                | General-purpose storage                    |
+| **ECX**  | Counter             | Loops, counters, string operations         |
+| **EDX**  | Data                | Arithmetic, multiplication/division        |
+| **ESP**  | Stack Pointer       | Points to the top of the stack             |
+| **EBP**  | Base Pointer        | Points to the current stack frame          |
+| **EIP**  | Instruction Pointer | Address of the next instruction to execute |
 
 ---
 
-# Typical Program Flow
+## Key Takeaways
 
-```text
-          Program Starts
-                 │
-                 ▼
-         Put syscall number
-            into RAX
-                 │
-                 ▼
-      Put arguments into
-RDI → RSI → RDX → R10 → R8 → R9
-                 │
-                 ▼
-             syscall
-                 │
-                 ▼
-      Kernel executes request
-                 │
-                 ▼
-      Return value stored in RAX
-```
+* **EAX** usually contains a function's return value.
+* **EBX**, **ECX**, and **EDX** are general-purpose registers with traditional roles in storage, counting, and arithmetic.
+* **ESP** tracks the top of the stack and changes with every `push` and `pop`.
+* **EBP** provides a stable reference point for accessing local variables and function arguments.
+* **EIP** controls program execution; overwriting it changes where the CPU executes next.
+* In exploit development, **EIP** is the primary target, while **ESP** helps locate your payload and **EBP** helps understand the stack frame.

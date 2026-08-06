@@ -529,51 +529,6 @@ The important part is that control flow successfully reached `win()`, completing
 
 ---
 
-# Memory Layout
-
-Before overflow:
-
-```
-High Address
-────────────────────────────
-
-Return Address
-
-Saved EBP
-
-Buffer
-AAAAAAAAAAAAAAAAAAAA
-
-────────────────────────────
-Low Address
-```
-
-After overflow:
-
-```
-High Address
-────────────────────────────
-
-0x080483f4   ← New Return Address
-
-BBBB         ← Saved EBP
-
-AAAAAAAAAAAAAAAAAAAA
-
-────────────────────────────
-Low Address
-```
-
-When `ret` executes:
-
-```
-EIP ← 0x080483f4
-```
-
-Execution immediately enters `win()`.
-
----
-
 # What I Learned
 
 * How stack frames are created using `push ebp` and `mov ebp, esp`.

@@ -202,16 +202,11 @@ Because x86 architecture uses **Little-Endian** byte order, we must pass this ad
 
 ---
 
-# Reconstructing the Original C Code
+# Example in C Code
 
 Based on the assembly and GDB flow, the source code looks almost exactly like this:
 
 ```c
-#include <stdlib.h>
-#include <unistd.h>
-#include <stdio.h>
-#include <string.h>
-
 void win()
 {
     puts("code flow successfully changed");
@@ -422,36 +417,7 @@ So instead of calling a normal function chosen by the program, **you decide whic
 
 ---
 
-
-
-### 1. Add a stack diagram
-
-This challenge is all about understanding the memory layout.
-
-```
-Higher Addresses
-─────────────────────────────
-
-Return Address
-─────────────────────────────
-Saved EBP
-─────────────────────────────
-fp (4 bytes)
-ESP + 0x5c
-─────────────────────────────
-buffer[64]
-ESP + 0x1c
-─────────────────────────────
-ESP
-
-Lower Addresses
-```
-
-This immediately shows **why 64 bytes reach the function pointer**.
-
----
-
-### 2. Add an execution-flow diagram
+###  Add an execution-flow diagram
 
 Something like:
 
@@ -491,55 +457,6 @@ Success!
 ```
 
 ---
-
-### 3. Explain indirect calls
-
-This is the **new concept** introduced in ex03.
-
-I would explain the difference:
-
-```asm
-call 0x08048424
-```
-
-↓
-
-```
-Jump to a fixed address.
-```
-
-versus
-
-```asm
-call *%eax
-```
-
-↓
-
-```
-Read the address stored in EAX,
-then jump there.
-```
-
-Example:
-
-```
-EAX = 0x08048424
-
-call *eax
-
-↓
-
-Jump to win()
-```
-
-This is the key idea of the challenge.
-
----
-
-### 4. Explain what a function pointer is
-
-A beginner-friendly section like this would fit nicely:
 
 ```c
 void hello()

